@@ -39,10 +39,13 @@ resource "google_compute_global_address" "static_external_ip" {
 }
 
 resource "google_compute_target_https_proxy" "https_proxy" {
-  name             = "${var.short_name}-https-proxy"
-  project          = "${var.project_id}"
-  url_map          = "${var.backend_url_map}"
-  ssl_certificates = ["${google_compute_managed_ssl_certificate.ssl_cert.self_link}"]
+  name    = "${var.short_name}-https-proxy"
+  project = "${var.project_id}"
+  url_map = "${var.backend_url_map}"
+
+  ssl_certificates = ["${google_compute_managed_ssl_certificate.ssl_cert.self_link}",
+    "${google_compute_managed_ssl_certificate.www_ssl_cert.self_link}",
+  ]
 }
 
 resource "google_compute_managed_ssl_certificate" "ssl_cert" {
@@ -52,6 +55,16 @@ resource "google_compute_managed_ssl_certificate" "ssl_cert" {
 
   managed {
     domains = ["${var.domain}"]
+  }
+}
+
+resource "google_compute_managed_ssl_certificate" "www_ssl_cert" {
+  provider = "google-beta"
+  project  = "${var.project_id}"
+  name     = "www-${var.short_name}-ssl-cert"
+
+  managed {
+    domains = ["www.${var.domain}"]
   }
 }
 
@@ -67,7 +80,7 @@ resource "google_compute_url_map" "http_redirect" {
   default_service = "${var.http_redirect_backend}"
 
   host_rule {
-    hosts        = ["${var.domain}"]
+    hosts        = ["${var.domain}", "www.${var.domain}"]
     path_matcher = "allpaths"
   }
 
@@ -105,6 +118,15 @@ resource "google_dns_record_set" "a" {
   type         = "A"
   ttl          = 300
   rrdatas      = ["${google_compute_global_address.static_external_ip.address}"]
+}
+
+resource "google_dns_record_set" "cname" {
+  project      = "${var.project_id}"
+  name         = "www.${var.domain}"
+  managed_zone = "${var.dns_zone}"
+  type         = "CNAME"
+  ttl          = 300
+  rrdatas      = ["${var.domain}"]
 }
 
 output "static_external_ip" {

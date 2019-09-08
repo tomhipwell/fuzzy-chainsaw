@@ -44,7 +44,6 @@ resource "google_compute_instance_template" "default" {
   }
 
   metadata {
-    "startup-script"            = "sudo iptables -w -A INPUT -p tcp --dport 80 -j ACCEPT"
     "gce-container-declaration" = "${data.template_file.instance_template.rendered}"
   }
 

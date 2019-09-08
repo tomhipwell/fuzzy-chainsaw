@@ -73,6 +73,8 @@ resource "google_project_services" "project" {
     "sqladmin.googleapis.com",
     "cloudbuild.googleapis.com",
     "composer.googleapis.com",
+    "bigquerystorage.googleapis.com",
+    "dns.googleapis.com",
   ]
 }
 

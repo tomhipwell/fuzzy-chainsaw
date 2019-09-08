@@ -1,8 +1,8 @@
 # fuzzy-chainsaw
 
-This repo builds a highly scalable, highly available and super cheap hosted static site, using a GCS bucket as the backend. There is edge caching for global content distribution and a https load balancer is deployed to terminate the SSL (TLS) connection from the client. SSL certificate issuance is handled for you. An nginx http redirect is deployed and run by an auto-scaling managed instance group so that all connections are always forwarded to https.
+This repo builds a highly scalable, highly available and super cheap hosted static site, using a GCS bucket as the backend. There is edge caching for global content distribution and a https load balancer is deployed to terminate the SSL (TLS) connection from the client. SSL certificate issuance is handled for you. An nginx http redirect is deployed and run by an auto-scaling managed instance group so that all connections are always forwarded to https. A managed dns zone and dns records are created for your site, alongside CNAME records for the www subdomain.
 
-Intended so you can rapidly spin up launch pages to validate new startup ideas, but your infrastruture is built the right way from the start of your project, so if your idea takes off, you already have a project and some deployed resources managed via a terraform codebase to build around/hack on top of - you do this by changing the url map so you move from a single static backend to many backends chosen using path matching over time.
+The infrastructure has a modular design, so as you need to grow you can switch out the modules rather than having to restructure all of your cloud resources or migrate between cloud providers. The initial setup is very similar to what you get from Netlify for static site hosting.
 
 ## Billing
 
@@ -33,7 +33,7 @@ The above command will also print to std out a path to a json file, set the goog
 export GOOGLE_APPLICATION_CREDENTIALS=~/path/to/my/credentials.json
 ```
 
-Set your working directory to ./terraform and run:
+Set your working directory to ./environments/prod and run:
 
 ```shell
 terraform init
@@ -47,23 +47,19 @@ If you've previously init'd your dir locally, make sure you run:
 terraform refresh
 ```
 
-To update your local state before starting work.
+To update your local state before starting work. Before we go further, make sure you have two things in place. Firstly, go register the domain you want to work with. Once that's done, run the plan command targetting the project module only:
 
-Once you've made your changes, run:
-
-```shell
-terraform plan
+```
+terraform plan -target module.project
 ```
 
-Which creates a plan object for what will happen when your changes get applied. Review your changes carefully - plan works by comparing the GCP project state to that defined in your code. If you're happy with the changes that will be made, then run:
+This command creates a plan object for what will happen when your changes get applied. Note that you're prompted for two variables - the domain name you have registed, and a short name to use for all the terraform resources. Set these based on whatever you want to use. Review your changes carefully - plan works by comparing the GCP project state to that defined in your code. If you're happy with the changes that will be made, then run:
 
 ```shell
-terraform apply
+terraform apply -target module.project
 ```
 
 This will apply your changes in the environment you have selected. Note that terraform is built around the concept of immutable infrastructure. So if your resources already exist, they will always be set to the state defined in code. This means that if you go and make a manual change to a GCP project through the Cloud Console those changes will be lost the next time terraform apply is run.
-
-Bear in mind that Cloud Composer also takes a _long_ time to deploy due to the dependencies it needs to go and set up under the hood. So be patient.
 
 ## Enabling Billing
 
@@ -100,6 +96,46 @@ resource "google_project" "project" {
 }
 ```
 
+## Pushing our nginx image to the project container registry
+
+Once you've setup your project for billing, you should be able to contiue with the resource build out. Start by running terraform apply again to complete the build of the project module:
+
+```shell
+terraform apply -target module.project
+```
+
+Once this is done, we'll have a container registry available to us to host our docker images. We need to deploy our docker image for our nginx http redirect service to this registry. First, build the image:
+
+```
+docker image build -t http-https ./containers/nginx/ 
+```
+
+Next, if you haven't already, configure your docker to use the gcloud credential helper:
+
+```shell
+gcloud auth configure-docker
+```
+
+Then tag your docker image with the container registry name, for example:
+
+```shell
+docker tag http-https eu.gcr.io/"$PROJECT"/http-https
+```
+
+Push the tagged image to the container registry:
+
+```shell
+docker push eu.gcr.io/"$PROJECT"/http-https
+```
+
+Now our image is pushed to our container registry, we can deploy the our managed instance group and the rest of our terraform resources. First check the plan again, and if you're happy, proceed and apply the changes:
+
+```
+terraform plan
+terraform apply
+```
+
+
 ## Outputs
 
 You can get output variables from Terraform using the command:
@@ -107,8 +143,6 @@ You can get output variables from Terraform using the command:
 ```shell
 terraform output
 ```
-
-This will give you the project name, id and the id of the cloud composer environment (useful if you want to work with the gcloud CLI).
 
 ## Switching to a service account when using terraform
 

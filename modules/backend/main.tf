@@ -48,7 +48,7 @@ resource "google_compute_url_map" "urlmap" {
   default_service = "${google_compute_backend_bucket.static.self_link}"
 
   host_rule {
-    hosts        = ["${var.domain}"]
+    hosts        = ["${var.domain}", "www.${var.domain}"]
     path_matcher = "allpaths"
   }
 
@@ -69,4 +69,8 @@ output "short_name" {
 
 output "https_backend_url_map" {
   value = "${google_compute_url_map.urlmap.self_link}"
+}
+
+output "static_backend_bucket" {
+  value = "${google_storage_bucket.static_pages.name}"
 }

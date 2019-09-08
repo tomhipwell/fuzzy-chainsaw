@@ -8,9 +8,14 @@ variable "domain" {
   default = "Domain name"
 }
 
+variable "short_name" {
+  type        = "string"
+  description = "Short label to identify terraform resources."
+}
+
 resource "google_dns_managed_zone" "frontend_zone" {
-  name     = "${var.domain}-zone"
-  dns_name = "${var.domain}"
+  name     = "${var.short_name}-zone"
+  dns_name = "${var.domain}."
   project  = "${var.project_id}"
 }
 
