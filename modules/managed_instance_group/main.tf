@@ -44,7 +44,7 @@ resource "google_compute_instance_template" "default" {
   }
 
   metadata {
-    "gce-container-declaration" = "${data.template_file.instance_template.rendered}"
+    gce-container-declaration = "${data.template_file.instance_template.rendered}"
   }
 
   lifecycle {
@@ -117,7 +117,7 @@ resource "google_compute_autoscaler" "autoscaler" {
     min_replicas    = "1"
     cooldown_period = "60"
 
-    cpu_utilization {
+    cpu_utilization = {
       target = "0.80"
     }
   }
