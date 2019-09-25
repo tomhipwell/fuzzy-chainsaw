@@ -37,9 +37,7 @@ resource "google_project" "project" {
   auto_create_network = false
 
   lifecycle {
-    ignore_changes = [
-      "billing_account",
-    ]
+    ignore_changes = ["billing_account"]
   }
 }
 
@@ -65,6 +63,7 @@ resource "google_project_services" "project" {
     "cloudresourcemanager.googleapis.com",
     "containerregistry.googleapis.com",
     "bigquery-json.googleapis.com",
+    "bigquery.googleapis.com",
     "pubsub.googleapis.com",
     "storage-api.googleapis.com",
     "appengine.googleapis.com",
@@ -84,7 +83,7 @@ resource "google_project_iam_member" "project_owner" {
   project = "${google_project_services.project.project}"
   member  = "email:${var.email}"
 
-  lifecycle = {
+  lifecycle {
     create_before_destroy = true
   }
 }
@@ -100,7 +99,7 @@ resource "google_project_iam_member" "terraform_owner" {
   project = "${google_project_services.project.project}"
   member  = "serviceAccount:${google_service_account.terraform_admin.email}"
 
-  lifecycle = {
+  lifecycle {
     create_before_destroy = true
   }
 }

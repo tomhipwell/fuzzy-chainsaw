@@ -43,7 +43,7 @@ resource "google_compute_instance_template" "default" {
     scopes = ["cloud-platform"]
   }
 
-  metadata {
+  metadata = {
     gce-container-declaration = "${data.template_file.instance_template.rendered}"
   }
 
@@ -99,7 +99,7 @@ resource "google_compute_instance_group_manager" "manager" {
     port = "${var.service_port}"
   }
 
-  auto_healing_policies = {
+  auto_healing_policies {
     health_check      = "${google_compute_health_check.healthz.self_link}"
     initial_delay_sec = "180"
   }
@@ -112,12 +112,12 @@ resource "google_compute_autoscaler" "autoscaler" {
   provider = "google-beta"
   target   = "${google_compute_instance_group_manager.manager.self_link}"
 
-  autoscaling_policy = {
+  autoscaling_policy {
     max_replicas    = "18"
     min_replicas    = "1"
     cooldown_period = "60"
 
-    cpu_utilization = {
+    cpu_utilization {
       target = "0.80"
     }
   }
