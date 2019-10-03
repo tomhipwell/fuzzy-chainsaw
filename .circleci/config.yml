@@ -1,0 +1,167 @@
+version: 2.1
+
+builder: &builder
+  docker:
+    - image: eu.gcr.io/${BUILDER_IMAGE_REGISTRY}/cloud-builder:${BUILDER_IMAGE_TAG}
+      auth:
+        username: _json_key
+        password: $CLOUD_ADMIN_KEY
+  working_directory: ~/builder
+  environment:
+    TF_IN_AUTOMATION: true
+
+add_credentials: &add_credentials
+  run:
+    name: Add credentials
+    command: |
+      echo ${CLOUD_ADMIN_KEY} > ${HOME}/cloud-admin.json
+      echo "export GOOGLE_APPLICATION_CREDENTIALS=/root/cloud-admin.json" >> $BASH_ENV
+      source $BASH_ENV
+
+gcloud_authenticate: &gcloud_authenticate
+  run:
+    name: Authenticate gcloud sdk
+    command: gcloud auth activate-service-account --key-file "$GOOGLE_APPLICATION_CREDENTIALS"
+
+env_filter: &env_filter
+  filters:
+    branches:
+      only:
+        - master
+
+env_ignore: &env_ignore
+  filters:
+    branches:
+      ignore:
+        - master
+
+commands:
+  terraform_init:
+    description: "Initialize the terraform environment"
+    parameters:
+      env_path:
+        type: string
+        default: "./env/prod"
+    steps:
+      - run:
+          name: terraform init
+          command: |
+            terraform init << parameters.env_path >>
+
+  plan_infra:
+    description: "Deploy infrastructure."
+    parameters:
+      env_path:
+        type: string
+        default: "./env/prod"
+    steps:
+      - attach_workspace:
+          at: .
+      - *add_credentials
+      - *gcloud_authenticate
+      - terraform_init:
+          env_path: << parameters.env_path >>
+      - run:
+          name: terraform plan
+          command: |
+            terraform plan -input=false -out=tfplan << parameters.env_path >>
+      - persist_to_workspace:
+          root: .
+          paths: .
+
+  apply_infra:
+    description: "Deploy infrastructure."
+    parameters:
+      env_path:
+        type: string
+        default: "./env/prod"
+    steps:
+      - attach_workspace:
+          at: .
+      - *add_credentials
+      - *gcloud_authenticate
+      - terraform_init
+      - run:
+          name: terraform apply
+          command: |
+            terraform apply -input=false "tfplan"
+
+jobs:
+  checkout:
+    <<: *builder
+    steps:
+      - checkout
+      - persist_to_workspace:
+          root: .
+          paths: .
+
+  validate_infra:
+    <<: *builder
+    parameters:
+      env_path:
+        type: string
+        default: "./env/prod"
+    steps:
+      - attach_workspace:
+          at: .
+      - *add_credentials
+      - terraform_init:
+          env_path: << parameters.env_path >>
+      - run:
+          name: terraform validate
+          command: terraform validate << parameters.env_path >>
+      - run:
+          name: terraform fmt
+          command: if [[ -n "$(terraform fmt -write=false << parameters.env_path >>)" ]]; then echo "Some terraform files need be formatted, run terraform fmt to fix"; exit 1; fi
+
+  plan_infra_prod:
+    <<: *builder
+    steps:
+      - attach_workspace:
+          at: .
+      - plan_infra:
+          env_path: "./env/prod"
+
+  apply_infra_prod:
+    <<: *builder
+    steps:
+      - attach_workspace:
+          at: .
+      - apply_infra:
+          env_path: "./env/prod"
+
+workflows:
+  version: 2.
+
+  # validates feature branch ahead of pr for merge into master.
+  feature:
+    jobs:
+      - checkout:
+          <<: *env_ignore
+      - validate_infra:
+          requires:
+            - checkout
+          <<: *env_ignore
+
+  # builds the production environment
+  infra:
+    jobs:
+      - checkout:
+          <<: *env_filter
+      - validate_infra:
+          requires:
+            - checkout
+          <<: *env_filter
+      - plan_infra_prod:
+          requires:
+            - validate_infra
+          <<: *env_filter
+      - hold_prod:
+          type: approval
+          requires:
+            - plan_infra_prod
+          <<: *env_filter
+      - apply_infra_prod:
+          requires:
+            - hold_prod
+          <<: *env_filter
