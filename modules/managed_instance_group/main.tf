@@ -1,5 +1,5 @@
 provider "google-beta" {
-  region  = "${var.region}"
+  region  = var.region
   version = "~> 2.0"
 }
 
@@ -9,25 +9,25 @@ data "google_compute_image" "coreos" {
 }
 
 data "template_file" "instance_template" {
-  template = "${file("${path.module}/container_declaration.yaml")}"
+  template = file("${path.module}/container_declaration.yaml")
 
   vars = {
-    project      = "${var.project_id}"
-    image_name   = "${var.image_name}"
-    service_name = "${var.service_name}"
+    project      = var.project_id
+    image_name   = var.image_name
+    service_name = var.service_name
   }
 }
 
 resource "google_compute_instance_template" "default" {
-  project      = "${var.project_id}"
-  provider     = "google-beta"
-  name_prefix  = "${var.service_name}"
-  machine_type = "${var.machine_type}"
-  region       = "${var.region}"
-  tags         = ["${var.service_name}"]
+  project      = var.project_id
+  provider     = google-beta
+  name_prefix  = var.service_name
+  machine_type = var.machine_type
+  region       = var.region
+  tags         = [var.service_name]
 
   network_interface {
-    subnetwork = "${var.subnet}"
+    subnetwork = var.subnet
 
     access_config {
       network_tier = "PREMIUM"
@@ -36,7 +36,7 @@ resource "google_compute_instance_template" "default" {
 
   disk {
     boot         = true
-    source_image = "${data.google_compute_image.coreos.self_link}"
+    source_image = data.google_compute_image.coreos.self_link
   }
 
   service_account {
@@ -44,7 +44,7 @@ resource "google_compute_instance_template" "default" {
   }
 
   metadata = {
-    gce-container-declaration = "${data.template_file.instance_template.rendered}"
+    gce-container-declaration = data.template_file.instance_template.rendered
   }
 
   lifecycle {
@@ -54,8 +54,8 @@ resource "google_compute_instance_template" "default" {
 
 resource "google_compute_health_check" "healthz" {
   name     = "${var.service_name}-http-healthz"
-  project  = "${var.project_id}"
-  provider = "google-beta"
+  project  = var.project_id
+  provider = google-beta
 
   check_interval_sec  = "10"
   timeout_sec         = "5"
@@ -73,13 +73,13 @@ resource "google_compute_health_check" "healthz" {
 }
 
 resource "google_compute_instance_group_manager" "manager" {
-  project            = "${var.project_id}"
-  provider           = "google-beta"
+  project            = var.project_id
+  provider           = google-beta
   name               = "${var.service_name}-instance-manager"
   wait_for_instances = false
-  base_instance_name = "${var.service_name}"
+  base_instance_name = var.service_name
 
-  zone = "${var.zone}"
+  zone = var.zone
 
   update_policy {
     type                  = "PROACTIVE"
@@ -90,27 +90,27 @@ resource "google_compute_instance_group_manager" "manager" {
   }
 
   version {
-    name              = "${var.service_name}"
-    instance_template = "${google_compute_instance_template.default.self_link}"
+    name              = var.service_name
+    instance_template = google_compute_instance_template.default.self_link
   }
 
   named_port {
-    name = "${var.service_name}"
-    port = "${var.service_port}"
+    name = var.service_name
+    port = var.service_port
   }
 
   auto_healing_policies {
-    health_check      = "${google_compute_health_check.healthz.self_link}"
+    health_check      = google_compute_health_check.healthz.self_link
     initial_delay_sec = "180"
   }
 }
 
 resource "google_compute_autoscaler" "autoscaler" {
-  name     = "${var.service_name}"
-  zone     = "${var.zone}"
-  project  = "${var.project_id}"
-  provider = "google-beta"
-  target   = "${google_compute_instance_group_manager.manager.self_link}"
+  name     = var.service_name
+  zone     = var.zone
+  project  = var.project_id
+  provider = google-beta
+  target   = google_compute_instance_group_manager.manager.self_link
 
   autoscaling_policy {
     max_replicas    = "18"
@@ -124,49 +124,49 @@ resource "google_compute_autoscaler" "autoscaler" {
 }
 
 resource "google_compute_backend_service" "default" {
-  project       = "${var.project_id}"
+  project       = var.project_id
   name          = "${var.service_name}-backend-service"
-  health_checks = ["${google_compute_health_check.healthz.self_link}"]
-  port_name     = "${var.service_name}"
-  protocol      = "${var.protocol}"
+  health_checks = [google_compute_health_check.healthz.self_link]
+  port_name     = var.service_name
+  protocol      = var.protocol
   enable_cdn    = true
 
   backend {
-    group = "${google_compute_instance_group_manager.manager.instance_group}"
+    group = google_compute_instance_group_manager.manager.instance_group
   }
 }
 
 resource "google_compute_firewall" "allow_health_check" {
-  project = "${var.project_id}"
+  project = var.project_id
   name    = "${var.service_name}-health-check-allowed"
-  network = "${var.network}"
+  network = var.network
 
   allow {
     protocol = "tcp"
   }
 
   source_ranges = ["130.211.0.0/22", "35.191.0.0/16"]
-  target_tags   = ["${var.service_name}"]
+  target_tags   = [var.service_name]
 }
 
 resource "google_compute_firewall" "allow_ssh" {
-  project = "${var.project_id}"
+  project = var.project_id
   name    = "${var.service_name}-ssh-allowed"
-  network = "${var.network}"
+  network = var.network
 
   allow {
     protocol = "tcp"
     ports    = ["22"]
   }
 
-  source_ranges = "${var.allowed_ssh_ip_range}"
-  target_tags   = ["${var.service_name}"]
+  source_ranges = var.allowed_ssh_ip_range
+  target_tags   = [var.service_name]
 }
 
 resource "google_compute_firewall" "allow_http" {
-  project = "${var.project_id}"
+  project = var.project_id
   name    = "${var.service_name}-http-allowed"
-  network = "${var.network}"
+  network = var.network
 
   allow {
     protocol = "tcp"
@@ -174,9 +174,10 @@ resource "google_compute_firewall" "allow_http" {
   }
 
   source_ranges = ["0.0.0.0/0"]
-  target_tags   = ["${var.service_name}"]
+  target_tags   = [var.service_name]
 }
 
 output "backend_service" {
-  value = "${google_compute_backend_service.default.self_link}"
+  value = google_compute_backend_service.default.self_link
 }
+

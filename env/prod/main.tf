@@ -8,23 +8,24 @@ variable "domain_name" {
 
 module "core_project" {
   source       = "../../projects/core"
-  short_name   = "${var.short_name}"
-  domain_name  = "${var.domain_name}"
+  short_name   = var.short_name
+  domain_name  = var.domain_name
   google_group = "foo@bar.com"
 }
 
 output "project" {
-  value = "${module.core_project.project}"
+  value = module.core_project.project
 }
 
 output "nameservers" {
-  value = "${module.core_project.nameservers}"
+  value = module.core_project.nameservers
 }
 
 output "static_site_ip" {
-  value = "${module.core_project.static_site_ip}"
+  value = module.core_project.static_site_ip
 }
 
 output "static_backend_bucket" {
-  value = "${module.core_project.static_backend_bucket}"
+  value = module.core_project.static_backend_bucket
 }
+

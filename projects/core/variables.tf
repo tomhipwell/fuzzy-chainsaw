@@ -9,3 +9,4 @@ variable "domain_name" {
 variable "google_group" {
   description = "Private google group to represent owners of the project."
 }
+

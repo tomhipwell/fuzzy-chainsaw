@@ -42,6 +42,7 @@ variable "protocol" {
 }
 
 variable "allowed_ssh_ip_range" {
-  type        = "list"
+  type        = list(string)
   description = "The allowed ip address range which can ssh to our vms."
 }
+

@@ -1,50 +1,40 @@
 provider "google-beta" {
-  region  = "${var.region}"
-  project = "${var.project_id}"
+  region  = var.region
+  project = var.project_id
 }
 
 variable "region" {
-  type        = "string"
+  type        = string
   description = "Default region for all resources."
   default     = "europe-west2"
 }
 
 variable "zone" {
-  type        = "string"
+  type        = string
   description = "Default zone for all resources."
   default     = "europe-west2-c"
 }
 
 variable "project_name" {
-  type        = "string"
+  type        = string
   description = "Project name, non-unique."
 }
 
 variable "project_id" {
-  type        = "string"
+  type        = string
   description = "Project id, unique."
 }
 
 variable "email" {
-  type        = "string"
+  type        = string
   description = "Owning email group or email address."
   default     = "foo@bar.com"
 }
 
-resource "google_project" "project" {
-  name                = "${var.project_name}"
-  project_id          = "${var.project_id}"
-  auto_create_network = false
-
-  lifecycle {
-    ignore_changes = ["billing_account"]
-  }
-}
-
-resource "google_project_services" "project" {
-  project = "${google_project.project.project_id}"
-
-  services = [
+variable "services" {
+  type        = list(string)
+  description = "The enabled google cloud apis for our project."
+  default = [
     "storage-component.googleapis.com",
     "deploymentmanager.googleapis.com",
     "replicapool.googleapis.com",
@@ -62,7 +52,6 @@ resource "google_project_services" "project" {
     "container.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "containerregistry.googleapis.com",
-    "bigquery-json.googleapis.com",
     "bigquery.googleapis.com",
     "pubsub.googleapis.com",
     "storage-api.googleapis.com",
@@ -77,10 +66,26 @@ resource "google_project_services" "project" {
   ]
 }
 
+resource "google_project" "project" {
+  name                = var.project_name
+  project_id          = var.project_id
+  auto_create_network = false
+
+  lifecycle {
+    ignore_changes = [billing_account]
+  }
+}
+
+resource "google_project_service" "projects" {
+  count   = length(var.services)
+  project = google_project.project.project_id
+  service = var.services[count.index]
+}
+
 resource "google_project_iam_member" "project_owner" {
-  count   = "${var.email != "foo@bar.com" ? 1 : 0}"
+  count   = var.email != "foo@bar.com" ? 1 : 0
   role    = "roles/owner"
-  project = "${google_project_services.project.project}"
+  project = google_project_service.projects[0].project
   member  = "email:${var.email}"
 
   lifecycle {
@@ -91,12 +96,12 @@ resource "google_project_iam_member" "project_owner" {
 resource "google_service_account" "terraform_admin" {
   account_id   = "terraform"
   display_name = "terraform"
-  project      = "${google_project_services.project.project}"
+  project      = google_project_service.projects[0].project
 }
 
 resource "google_project_iam_member" "terraform_owner" {
   role    = "roles/owner"
-  project = "${google_project_services.project.project}"
+  project = google_project_service.projects[0].project
   member  = "serviceAccount:${google_service_account.terraform_admin.email}"
 
   lifecycle {
@@ -105,13 +110,14 @@ resource "google_project_iam_member" "terraform_owner" {
 }
 
 output "project_id" {
-  value = "${google_project_services.project.project}"
+  value = google_project_service.projects[0].project
 }
 
 output "region" {
-  value = "${var.region}"
+  value = var.region
 }
 
 output "zone" {
-  value = "${var.zone}"
+  value = var.zone
 }
+
