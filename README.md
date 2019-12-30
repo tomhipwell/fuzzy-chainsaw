@@ -52,7 +52,7 @@ To update your local state before starting work.
 Before we go further, make sure you have two things in place. Firstly, go register the domain you want to work with. Once that's done, run the plan command targetting the project module only:
 
 ```shell
-terraform plan -target module.core_project.module.project -out tfout
+terraform plan -target module.project -out tfout
 ```
 
 This command creates a plan object for what will happen when your changes get applied. Note that you're prompted for two variables - the domain name you have registed, and a short name to use for all the terraform resources. Set these based on whatever you want to use. Review your changes carefully - plan works by comparing the GCP project state to that defined in your code. If you're happy with the changes that will be made, then run:
@@ -93,9 +93,9 @@ data "google_billing_account" "acct" {
 }
 
 resource "google_project" "project" {
-  name                = "${var.project_name}"
-  project_id          = "${var.project_id}"
-  billing_account     = "${data.google_billing_account.acct.id}"
+  name                = var.project_name
+  project_id          = var.project_id
+  billing_account     = data.google_billing_account.acct.id
   auto_create_network = true
 }
 ```
@@ -105,7 +105,7 @@ resource "google_project" "project" {
 Once you've setup your project for billing, you should be able to contiue with the resource build out. Start by running terraform apply again to complete the build of the project module:
 
 ```shell
-terraform apply -target module.core_project.module.project
+terraform apply -target module.project
 ```
 
 Once this is done, we'll have a container registry available to us to host our docker images. We need to deploy our docker image for our nginx http redirect service to this registry. First, build the image. To do this, from the root directory run:

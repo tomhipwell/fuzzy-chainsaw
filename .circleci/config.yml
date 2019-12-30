@@ -41,7 +41,7 @@ commands:
     parameters:
       env_path:
         type: string
-        default: "./env/prod"
+        default: "./config"
     steps:
       - run:
           name: terraform init
@@ -53,7 +53,7 @@ commands:
     parameters:
       env_path:
         type: string
-        default: "./env/prod"
+        default: "./config"
     steps:
       - attach_workspace:
           at: .
@@ -74,7 +74,7 @@ commands:
     parameters:
       env_path:
         type: string
-        default: "./env/prod"
+        default: "./config"
     steps:
       - attach_workspace:
           at: .
@@ -100,7 +100,7 @@ jobs:
     parameters:
       env_path:
         type: string
-        default: "./env/prod"
+        default: "./config"
     steps:
       - attach_workspace:
           at: .
@@ -120,7 +120,7 @@ jobs:
       - attach_workspace:
           at: .
       - plan_infra:
-          env_path: "./env/prod"
+          env_path: "./config"
 
   apply_infra_prod:
     <<: *builder
@@ -128,7 +128,7 @@ jobs:
       - attach_workspace:
           at: .
       - apply_infra:
-          env_path: "./env/prod"
+          env_path: "./config"
 
 workflows:
   version: 2.
